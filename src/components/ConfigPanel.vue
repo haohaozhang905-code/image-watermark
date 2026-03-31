@@ -30,6 +30,20 @@
           />
         </div>
         <div class="form-item">
+          <label class="form-label">字重</label>
+          <div class="seg-control">
+            <button
+              v-for="fw in fontWeightOptions"
+              :key="fw.value"
+              type="button"
+              class="seg-btn"
+              :class="{ active: cfg.fontWeight === fw.value }"
+              :title="fw.hint"
+              @click="cfg.fontWeight = fw.value"
+            >{{ fw.label }}</button>
+          </div>
+        </div>
+        <div class="form-item">
           <div class="label-row">
             <label class="form-label">透明度</label>
             <span class="val-pill">{{ Math.round(cfg.opacity * 100) }}%</span>
@@ -179,6 +193,7 @@ const progressPct = computed(() =>
 )
 
 const presetColors = [
+  { value: '#000000', label: '黑色' },
   { value: '#888888', label: '灰色' },
   { value: '#b0b0b0', label: '浅灰' },
   { value: '#ffffff', label: '白色' },
@@ -186,7 +201,12 @@ const presetColors = [
   { value: '#EF4444', label: '红色' },
   { value: '#10B981', label: '绿色' },
   { value: '#8B5CF6', label: '紫色' },
-  { value: '#000000', label: '黑色' },
+]
+
+const fontWeightOptions = [
+  { value: 400, label: '常规', hint: 'font-weight 400' },
+  { value: 550, label: '中等', hint: 'font-weight 550' },
+  { value: 700, label: '加粗', hint: 'font-weight 700' },
 ]
 
 function colorDotStyle(c) {

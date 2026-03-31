@@ -85,13 +85,14 @@ const processedBlobs = ref([])
 const activeIndex    = ref(0)
 
 const config = ref({
-  text:     '内部资料 · 禁止外传',
-  fontSize: 3,
-  color:    '#888888',
-  opacity:  0.8,
-  layout:   'tile',
-  rotation: -45,
-  spacing:  'dense',
+  text:        '内部资料 · 禁止外传',
+  fontSize:    3.5,
+  fontWeight:  550,
+  color:       '#000000',
+  opacity:     0.3,
+  layout:      'tile',
+  rotation:    -45,
+  spacing:     'dense',
 })
 
 const processing = ref(false)

@@ -5,9 +5,10 @@ export function hexToRgba(hex, opacity) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`
 }
 
-/** 资料类斜向平铺水印用常规字重，接近证件/审核类参考效果 */
-function canvasFont(sizePx) {
-  return `400 ${sizePx}px "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
+function canvasFont(sizePx, config) {
+  const w = Number(config?.fontWeight)
+  const weight = Number.isFinite(w) && w > 0 ? Math.round(w) : 400
+  return `${weight} ${sizePx}px "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
 }
 
 /** 字号：config.fontSize 表示「较短边的百分比」，横图/竖图视觉更一致 */
@@ -42,7 +43,7 @@ function drawTileWatermark(ctx, width, height, config) {
   const actualFontSize = fontSizePx(config, width, height)
 
   ctx.save()
-  ctx.font = canvasFont(actualFontSize)
+  ctx.font = canvasFont(actualFontSize, config)
   const { tw, th } = measureTextBox(ctx, text, actualFontSize)
   const rad = (config.rotation * Math.PI) / 180
   const abscos = Math.abs(Math.cos(rad))
@@ -75,7 +76,7 @@ function drawCenterWatermark(ctx, width, height, config) {
 
   const actualFontSize = fontSizePx(config, width, height)
   ctx.save()
-  ctx.font = canvasFont(actualFontSize)
+  ctx.font = canvasFont(actualFontSize, config)
   ctx.fillStyle = hexToRgba(config.color, config.opacity)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
