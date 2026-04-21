@@ -20,13 +20,6 @@
               <img :src="thumbUrls[idx]" :alt="file.name" class="thumb-img" />
               <div class="thumb-actions">
                 <button type="button" class="btn-rm" @click.stop="removeImage(idx)">✕</button>
-                <a
-                  v-if="processedBlobs[idx]"
-                  class="btn-dl"
-                  :href="getBlobUrl(idx)"
-                  :download="dlName(file.name)"
-                  @click.stop
-                >↓</a>
               </div>
               <span v-if="processedBlobs[idx]" class="thumb-done-dot" aria-hidden="true" />
             </button>
@@ -188,11 +181,22 @@ function onFileChange(e) {
   min-width: 0;
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   align-content: center;
   gap: 6px;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px; /* 为滚动条留点空间 */
+}
+
+/* 隐藏滚动条但保留滚动功能 (可选，看帅哥喜好，这里先加上) */
+.thumb-strip-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.thumb-strip-scroll::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 2px;
 }
 
 .thumb-tile {
@@ -220,11 +224,11 @@ function onFileChange(e) {
 }
 .thumb-actions {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 2px;
+  right: 2px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 1;
@@ -232,11 +236,11 @@ function onFileChange(e) {
 .thumb-tile:hover .thumb-actions { opacity: 1; }
 .btn-rm,
 .btn-dl {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: none;
-  font-size: 10px;
+  font-size: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -247,8 +251,6 @@ function onFileChange(e) {
 }
 .btn-rm { background: rgba(0, 0, 0, 0.5); color: #fff; }
 .btn-rm:hover { background: #ef4444; }
-.btn-dl { background: rgba(0, 122, 255, 0.92); color: #fff; font-size: 12px; }
-.btn-dl:hover { background: #007aff; }
 
 .thumb-img {
   display: block;

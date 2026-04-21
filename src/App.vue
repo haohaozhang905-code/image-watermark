@@ -4,20 +4,18 @@
       <div class="header-inner">
         <div class="header-brand">
           <div class="header-logo">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-              <rect x="3" y="3" width="18" height="18" rx="2.5" />
-              <circle cx="8.5" cy="9.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M9 12l2 2 4-4" />
             </svg>
           </div>
-          <span class="header-title">图片水印</span>
+          <span class="header-title">隐私水印</span>
+          <span class="header-v2-tag">V2</span>
         </div>
         <span class="header-sep" />
         <span class="header-badge">
-          <svg width="14" height="14" viewBox="0 0 12 12" fill="none" class="header-badge-icon">
-            <path d="M2 6l3 3 5-5" stroke="#007a55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          本地处理 · 不上传
+          <span class="badge-icon">✨</span>
+          本地智能处理
         </span>
       </div>
     </header>
@@ -38,8 +36,8 @@
         />
       </aside>
 
-      <!-- 右：仅「实时预览」卡片（顶栏+画布）与缩略图条分离；无图时底部占位与有图时缩略条同高，画布区尺寸一致 -->
-      <div class="content content--work">
+      <!-- 右：主操作区 -->
+      <div class="content">
         <PreviewCanvas
           class="work-preview"
           :images="images"
@@ -48,20 +46,32 @@
           @update:active-index="activeIndex = $event"
           @update:images="onImagesUpdate"
         />
-        <UploadZone
-          v-if="images.length"
-          class="work-thumbs"
-          :images="images"
-          :processed-blobs="processedBlobs"
-          :active-index="activeIndex"
-          @update:images="onImagesUpdate"
-          @select-image="activeIndex = $event"
-        />
-        <div
-          v-else
-          class="work-thumbs work-thumbs--reserve"
-          aria-hidden="true"
-        />
+
+        <div v-if="images.length" class="bottom-controls">
+          <UploadZone
+            class="work-thumbs"
+            :images="images"
+            :processed-blobs="processedBlobs"
+            :active-index="activeIndex"
+            @update:images="onImagesUpdate"
+            @select-image="activeIndex = $event"
+          />
+          <div class="export-actions">
+            <button
+              type="button"
+              class="btn-export"
+              :disabled="!processedBlobs.some(Boolean) || processing"
+              @click="downloadZip"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              导出ZIP结果
+            </button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -72,27 +82,33 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import ConfigPanel   from './components/ConfigPanel.vue'
 import PreviewCanvas from './components/PreviewCanvas.vue'
 import UploadZone    from './components/UploadZone.vue'
 import { applyWatermark } from './utils/watermark.js'
+import { SCENES } from './utils/scenes.js'
 
 const images         = ref([])
 const processedBlobs = ref([])
 const activeIndex    = ref(0)
 
 const config = ref({
-  text:        '内部资料 · 禁止外传',
-  fontSize:    3.5,
-  fontWeight:  550,
+  text:        '仅用于入职背景调查，他用无效',
+  fontSize:    4,
+  fontWeight:  400,
   color:       '#000000',
   opacity:     0.3,
   layout:      'tile',
-  rotation:    -45,
+  rotation:    -30,
   spacing:     'dense',
+})
+
+const currentSceneName = computed(() => {
+  const matched = SCENES.find(s => s.config && s.config.text === config.value.text)
+  return matched ? matched.title : '自定义'
 })
 
 const processing = ref(false)
@@ -126,7 +142,13 @@ async function startProcess() {
 }
 
 async function downloadZip() {
-  if (!processedBlobs.value.some(Boolean)) return
+  if (!images.value.length) return
+
+  // 如果还没处理过，或者中途改了配置，先执行一遍处理逻辑
+  if (!processedBlobs.value.some(Boolean) || processing.value) {
+    await startProcess()
+  }
+
   showToast('正在打包…', 'info')
   const zip = new JSZip()
   processedBlobs.value.forEach((blob, i) => {
@@ -160,7 +182,7 @@ html, body {
 }
 body {
   font-family: Inter, 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f9fafb;
+  background: #f4f6f8;
   color: #101828;
   -webkit-font-smoothing: antialiased;
 }
@@ -172,6 +194,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #f4f6f8;
 }
 
 /* Header */
@@ -179,54 +202,54 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255,255,255,0.78);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: #fff;
   border-bottom: 1px solid #e5e7eb;
-  height: 56px;
+  height: 60px;
   display: flex;
   align-items: center;
   padding: 0 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
-.header-inner { display: flex; align-items: center; gap: 16px; }
-.header-brand { display: flex; align-items: center; gap: 8px; }
+.header-inner { display: flex; align-items: center; gap: 16px; width: 100%; }
+.header-brand { display: flex; align-items: center; gap: 10px; }
 .header-logo {
   width: 32px; height: 32px;
-  background: #007aff;
-  border-radius: 10px;
+  background: #2563eb;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: inset 0 2px 4px rgba(20, 71, 230, 0.5);
 }
 .header-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: #101828;
-  letter-spacing: -0.45px;
+  letter-spacing: -0.5px;
+}
+.header-v2-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
 }
 .header-badge {
-  font-size: 12px;
-  font-weight: 500;
-  color: #007a55;
+  font-size: 13px;
+  font-weight: 600;
+  color: #059669;
   background: #ecfdf5;
-  border: 1px solid rgba(164, 244, 207, 0.6);
+  border: 1px solid #d1fae5;
   border-radius: 999px;
-  height: 26px;
-  padding: 0 12px 0 30px;
-  position: relative;
+  padding: 4px 12px;
   display: inline-flex;
   align-items: center;
+  gap: 6px;
 }
-.header-badge-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  flex-shrink: 0;
+.badge-icon {
+  font-size: 14px;
 }
 
 /* Layout */
@@ -235,20 +258,20 @@ body {
   min-height: 0;
   display: flex;
   align-items: stretch;
-  max-width: min(1280px, 100%);
   width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
   overflow: hidden;
-  box-sizing: border-box;
 }
 
 .sidebar {
-  width: min(288px, 34vw);
-  min-width: 240px;
+  width: 320px;
   flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
 }
 
 .content {
@@ -258,44 +281,61 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: clamp(10px, 1.5vw, 20px);
-  background-color: #f0f2f5;
-  background-image:
-    radial-gradient(ellipse 100% 80% at 50% 45%, rgba(229, 231, 235, 0.4) 0%, transparent 58%),
-    linear-gradient(90deg, #f0f2f5 0%, #f0f2f5 100%);
+  padding: 24px;
+  background: #f4f6f8;
+  gap: 12px;
 }
 
-/* 预览在上、有图时缩略图条在底；极矮屏或多张换行时由整列滚动 */
-.content--work {
-  gap: clamp(8px, 1.2vw, 12px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.content--work .work-preview {
+.work-preview {
   flex: 1;
   min-height: 0;
 }
-.content--work .work-thumbs {
+
+/* 底部操作区 */
+.bottom-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  background: #f0f2f5;
-  padding-top: 2px;
-  margin-top: auto;
 }
 
-/* 与缩略图条单行高度对齐，避免无图时预览卡片过高导致画布区域与有图时不一致 */
-.content--work .work-thumbs--reserve {
+.work-thumbs {
+  flex: 1;
+  min-width: 0;
+}
+
+.export-actions {
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  padding-top: 2px;
-  min-height: 66px;
-  box-sizing: border-box;
-  visibility: hidden;
-  pointer-events: none;
+  padding-bottom: 4px; /* 对齐缩略图卡片底部 */
+}
+
+.btn-export {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 24px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.btn-export:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.btn-export:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .header-sep {

@@ -1,6 +1,7 @@
 <template>
   <div class="preview-card">
     <div ref="boxEl" class="canvas-shell">
+      <div class="watermark-guard" aria-hidden="true"></div>
       <span v-if="images.length > 1" class="nav-pill" aria-live="polite">{{ activeIndex + 1 }} / {{ images.length }}</span>
       <canvas ref="canvasEl" class="preview-canvas" />
       <UploadDropArea
@@ -125,7 +126,41 @@ let resizeObs = null
 onMounted(() => {
   nextTick(loadAndDraw)
   window.addEventListener('keydown', onKeyDown)
+
+  // 安全防护：监听水印相关节点
+  setupSecurityGuard()
 })
+
+function setupSecurityGuard() {
+  const target = boxEl.value
+  if (!target) return
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      // 如果子节点被删，或者属性被改（比如 display: none）
+      if (mutation.type === 'childList' || mutation.type === 'attributes') {
+        const guard = target.querySelector('.watermark-guard')
+        const canvas = canvasEl.value
+        if (!guard || !canvas || canvas.style.display === 'none' || canvas.style.opacity < 0.5) {
+          // 暴力恢复状态
+          if (canvas) {
+            canvas.style.display = 'block'
+            canvas.style.opacity = '1'
+          }
+          loadAndDraw() // 重新渲染
+        }
+      }
+    })
+  })
+
+  observer.observe(target, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+    attributeFilter: ['style', 'class']
+  })
+}
+
 watchEffect((onCleanup) => {
   const el = boxEl.value
   if (!el) return
@@ -192,6 +227,13 @@ onUnmounted(() => {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.watermark-guard {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
 }
 
 .nav-overlay {
