@@ -62,12 +62,12 @@ function drawTileWatermark(ctx, width, height, config, luminance = 255) {
   if (!text) return
 
   // 1. 参数设定
-  const fontSize = 12 // 从 16px 调小到 12px
+  const fontSize = fontSizePx(config, width, height)
   const angle = -40
   const rad = (angle * Math.PI) / 180
 
   ctx.save()
-  ctx.font = `${config.fontWeight || 400} ${fontSize}px sans-serif`
+  ctx.font = canvasFont(fontSize, config)
 
   // 动态测量文字宽度，避免重叠
   const { tw } = measureTextBox(ctx, text, fontSize)

@@ -17,12 +17,15 @@
           <span class="badge-icon">✨</span>
           本地智能处理
         </span>
+        <button type="button" class="btn-config-toggle" @click="sidebarOpen = !sidebarOpen">
+          {{ sidebarOpen ? '收起配置 ▲' : '展开配置 ▼' }}
+        </button>
       </div>
     </header>
 
     <main class="app-main">
       <!-- 左：配置面板 -->
-      <aside class="sidebar">
+      <aside class="sidebar" :class="{ 'sidebar-mobile-open': sidebarOpen, 'sidebar-mobile-hidden': isMobile && !sidebarOpen }">
         <ConfigPanel
           :config="config"
           :has-images="images.length > 0"
@@ -82,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import ConfigPanel   from './components/ConfigPanel.vue'
@@ -94,6 +97,16 @@ import { SCENES } from './utils/scenes.js'
 const images         = ref([])
 const processedBlobs = ref([])
 const activeIndex    = ref(0)
+
+// 移动端侧边栏折叠状态
+const isMobile    = ref(false)
+const sidebarOpen = ref(false)
+
+function checkMobile() {
+  isMobile.value = window.innerWidth < 768
+}
+onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
+onUnmounted(() => window.removeEventListener('resize', checkMobile))
 
 const config = ref({
   text:        '仅用于入职背景调查，他用无效',
@@ -343,6 +356,63 @@ body {
   height: 16px;
   background: #d1d5dc;
   flex-shrink: 0;
+}
+
+/* 移动端折叠按钮：桌面隐藏 */
+.btn-config-toggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .btn-config-toggle {
+    display: inline-flex;
+    margin-left: auto;
+    padding: 6px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .app-main {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-height: 60vh;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-mobile-hidden {
+    display: none;
+  }
+
+  .content {
+    padding: 12px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .app {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  html, body {
+    overflow: auto;
+    height: auto;
+  }
 }
 
 /* Toast */
