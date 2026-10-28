@@ -11,9 +11,9 @@ function canvasFont(sizePx, config) {
   return `${weight} ${sizePx}px "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
 }
 
-/** 字号按图片宽高的几何平均计算，平衡横竖图的视觉占比。 */
-function fontSizePx(config, width, height) {
-  return (config.fontSize / 100) * Math.sqrt(width * height)
+/** 字号按图片短边的百分比计算，避免竖长手机截图上的文字相对显得更大。 */
+export function fontSizePx(config, width, height) {
+  return (config.fontSize / 100) * Math.min(width, height)
 }
 
 /** measureText 宽度 + 尽量用语义框高度，改善平铺步长 */

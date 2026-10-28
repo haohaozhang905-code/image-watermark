@@ -126,6 +126,38 @@ async function main() {
       })
     }
 
+    await check('Watermark font size stays proportional to the short edge across photo and phone screenshot ratios', async () => {
+      const page = await newPage()
+      const ratios = await page.evaluate(async () => {
+        const { applyWatermark } = await import('/src/utils/watermark.js')
+        const original = CanvasRenderingContext2D.prototype.fillText
+        const fontSizes = []
+        CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
+          if (this.canvas.width) {
+            const match = this.font.match(/([\d.]+)px/)
+            if (match) fontSizes.push(Number(match[1]))
+          }
+          return original.call(this, text, ...args)
+        }
+        const dimensions = [[1080, 2376], [4240, 2832], [2560, 2387]]
+        const result = []
+        for (const [width, height] of dimensions) {
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+          const file = new File([blob], 'shape.png', { type: 'image/png' })
+          const before = fontSizes.length
+          await applyWatermark(file, { text: 'TEST', fontSize: 4, fontWeight: 400, color: '#000000', opacity: 0.3, layout: 'center', rotation: 0, spacing: 'medium' })
+          result.push({ width, height, fontSize: fontSizes[before], ratio: fontSizes[before] / Math.min(width, height) })
+        }
+        CanvasRenderingContext2D.prototype.fillText = original
+        return result
+      })
+      for (const result of ratios) assert.ok(Math.abs(result.ratio - 0.04) < 0.0001, JSON.stringify(ratios))
+      return ratios
+    })
+
     await check('Single export action + R02 latest settings', async () => {
       const page = await newPage()
       await upload(page, [file('white.png')])
