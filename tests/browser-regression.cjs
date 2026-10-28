@@ -76,11 +76,11 @@ async function main() {
     }
     async function exportZip(page, name) {
       const pending = page.waitForEvent('download')
-      await page.locator('.btn-export').click()
+      await page.locator('.export-button').click()
       const download = await pending
       const zipPath = path.join(outputDir, name + '.zip')
       await download.saveAs(zipPath)
-      await page.waitForFunction(() => !document.querySelector('.btn-export').disabled)
+      await page.waitForFunction(() => !document.querySelector('.export-button').disabled)
       return JSZip.loadAsync(await fs.readFile(zipPath))
     }
     const dimensions = buffer => [buffer.readUInt32BE(16), buffer.readUInt32BE(20)]
@@ -130,11 +130,11 @@ async function main() {
       const page = await newPage()
       await upload(page, [file('white.png')])
       assert.equal(await page.locator('.btn-smart').count(), 0)
-      assert.equal(await page.locator('.btn-export').isEnabled(), true)
+      assert.equal(await page.locator('.export-button').isEnabled(), true)
       const before = await exportZip(page, 'first-export')
       const beforeBytes = await before.file('white_watermarked.png').async('nodebuffer')
       assert.deepEqual(dimensions(beforeBytes), [2400, 1600])
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.locator('textarea').fill('LATEST-ONLY')
       await page.evaluate(() => {
         window._exportTexts = []
@@ -166,7 +166,7 @@ async function main() {
     await check('R04/R05 export snapshot, mutation lock, duplicate click guard', async () => {
       const page = await newPage()
       await upload(page, [file('first.png'), file('second.png')])
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.locator('textarea').fill('BEFORE')
       await page.evaluate(() => {
         window._texts = []; window._blobCalls = 0
@@ -187,24 +187,24 @@ async function main() {
       let downloads = 0
       page.on('download', () => downloads++)
       const pending = page.waitForEvent('download')
-      await page.locator('.btn-export').click()
+      await page.locator('.export-button').click()
       await page.waitForFunction(() => window._held)
-      for (const selector of ['textarea', 'input[type=range]', '.seg-btn', '.color-dot', '.btn-rm', '.btn-clear-text', '.thumb-add', 'input[type=file]', '.btn-export']) {
+      for (const selector of ['textarea', 'input[type=range]', '.seg-btn', '.color-dot', '.btn-rm', '.btn-clear-text', '.thumb-add', 'input[type=file]', '.export-button']) {
         assert.equal(await page.locator(selector).first().isDisabled(), true, selector)
       }
       // Also exercise parent/handler guards against queued or synthetic events.
-      await page.locator('.scene-card').nth(1).click()
+      await page.locator('.scene-button').nth(1).click()
       await page.locator('.btn-rm').first().dispatchEvent('click')
       await page.locator('.btn-clear-text').dispatchEvent('click')
       await page.locator('input[type=file]').setInputFiles([file('third.png')])
-      await page.locator('.btn-export').dispatchEvent('click')
+      await page.locator('.export-button').dispatchEvent('click')
       assert.equal(await page.locator('.thumb-tile').count(), 2)
       assert.equal(await page.locator('textarea').inputValue(), 'BEFORE')
       await page.evaluate(() => window._release())
       const download = await pending
       const zipPath = path.join(outputDir, 'locked-batch.zip')
       await download.saveAs(zipPath)
-      await page.waitForFunction(() => !document.querySelector('.btn-export').disabled)
+      await page.waitForFunction(() => !document.querySelector('.export-button').disabled)
       const zip = await JSZip.loadAsync(await fs.readFile(zipPath))
       assert.deepEqual(Object.keys(zip.files), ['first_watermarked.png', 'second_watermarked.png'])
       assert.equal((await zip.file('first_watermarked.png').async('nodebuffer')).equals(await zip.file('second_watermarked.png').async('nodebuffer')), true)
@@ -263,7 +263,7 @@ async function main() {
       })
       await upload(page, [file('white.png')])
       await page.waitForFunction(() => window._imagePending)
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.locator('textarea').fill('LATEST-TEXT')
       await page.evaluate(() => window._finishImage())
       await page.waitForFunction(() => window._texts.includes('LATEST-TEXT'))
@@ -297,11 +297,11 @@ async function main() {
       let downloads = 0
       page.on('download', () => downloads++)
       await upload(page, [broken()])
-      await page.locator('.btn-export').click()
+      await page.locator('.export-button').click()
       await page.waitForFunction(() => document.querySelector('.export-status')?.textContent.includes('成功 0 张'))
       assert.match(await page.locator('.export-status').innerText(), /失败 1 张[\s\S]*broken.png[\s\S]*图片加载失败/)
       assert.equal(downloads, 0)
-      assert.equal(await page.locator('.btn-export').isEnabled(), true)
+      assert.equal(await page.locator('.export-button').isEnabled(), true)
       await page.screenshot({ path: path.join(outputDir, 'failed-export.png') })
       await page.locator('.btn-rm').click({ force: true })
       await upload(page, [file('retry.png')])
@@ -330,9 +330,9 @@ async function main() {
           return original.call(this, cb, ...args)
         }
       })
-      await page.locator('.btn-export').click()
+      await page.locator('.export-button').click()
       await page.waitForFunction(() => document.querySelector('.export-status')?.textContent.includes('图片编码失败'))
-      assert.equal(await page.locator('.btn-export').isEnabled(), true)
+      assert.equal(await page.locator('.export-button').isEnabled(), true)
       return { recovered: true }
     })
 
@@ -363,7 +363,7 @@ async function main() {
     await check('R10 arrow keys inside editable controls do not change selected image', async () => {
       const page = await newPage()
       await upload(page, [file('first.png'), file('second.png', 'dark')])
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.locator('textarea').focus()
       await page.keyboard.press('ArrowRight')
       assert.equal(await page.locator('.thumb-tile.active img').getAttribute('alt'), 'first.png')
@@ -374,12 +374,12 @@ async function main() {
 
     await check('R11 initial values match the selected preset and edits select Custom', async () => {
       const page = await newPage()
-      await page.locator('.section-header.clickable').click()
-      assert.equal(await page.locator('.scene-card.active .scene-title').innerText(), '入职背调')
-      assert.equal(await page.locator('.val-pill').innerText(), '18%')
+      await page.locator('.field-label-row').click()
+      assert.equal(await page.locator('.scene-button.active > span:first-of-type').innerText(), '入职背调')
+      assert.equal(await page.locator('.value-label').innerText(), '18%')
       await page.locator('textarea').fill('自定义文字')
-      assert.equal(await page.locator('.scene-card.active .scene-title').innerText(), '自定义')
-      await page.locator('.scene-card').first().click()
+      assert.equal(await page.locator('.scene-button.active > span:first-of-type').innerText(), '自定义')
+      await page.locator('.scene-button').first().click()
       assert.equal(await page.locator('textarea').inputValue(), '仅用于入职背景调查，他用无效')
       return { initialOpacity: '18%', customSelection: true, presetRestore: true }
     })
@@ -387,7 +387,7 @@ async function main() {
     await check('R12 multiline text is drawn on separate measured lines', async () => {
       const page = await newPage()
       await upload(page, [file('white.png')])
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.evaluate(() => {
         window._lineDraws = []
         const original = CanvasRenderingContext2D.prototype.fillText
@@ -417,11 +417,11 @@ async function main() {
       let downloads = 0
       page.on('download', () => downloads++)
       await upload(page, [file('white.png')])
-      await page.locator('.section-header.clickable').click()
+      await page.locator('.field-label-row').click()
       await page.locator('textarea').fill('  \n  ')
-      await page.locator('.btn-export').click()
+      await page.locator('.export-button').click()
       assert.match(await page.locator('.export-status').innerText(), /请先填写水印文字/)
-      assert.equal(await page.locator('.btn-export').isEnabled(), true)
+      assert.equal(await page.locator('.export-button').isEnabled(), true)
       assert.equal(downloads, 0)
       return { downloads, error: await page.locator('.export-status').innerText() }
     })
@@ -460,10 +460,9 @@ async function main() {
 
     await check('R16 scene and settings controls expose accessible names and valid structure', async () => {
       const page = await newPage()
-      await page.locator('.section-header.clickable').click()
-      assert.equal(await page.locator('.scene-card').count(), 4)
-      assert.equal(await page.locator('.scene-card').evaluateAll(els => els.every(el => el.tagName === 'BUTTON' && el.hasAttribute('aria-pressed'))), true)
-      assert.equal(await page.locator('.section-header.clickable').getAttribute('aria-expanded'), 'true')
+      await page.locator('.field-label-row').click()
+      assert.equal(await page.locator('.scene-button').count(), 4)
+      assert.equal(await page.locator('.scene-button').evaluateAll(els => els.every(el => el.tagName === 'BUTTON' && el.hasAttribute('aria-pressed'))), true)
       assert.equal(await page.locator('textarea').evaluate(el => el.labels.length), 1)
       assert.equal(await page.locator('input[type=range]').evaluate(el => el.labels.length), 1)
       assert.equal(await page.locator('.color-dot').evaluateAll(els => els.every(el => el.getAttribute('aria-label'))), true)
@@ -544,16 +543,16 @@ async function main() {
           await upload(page, [file('production.png')])
           assert.equal(await page.locator('.btn-smart').count(), 0)
           const first = await exportZip(page, 'production-first')
-          await page.locator('.section-header.clickable').click()
+          await page.locator('.field-label-row').click()
           await page.locator('textarea').fill('PRODUCTION-LATEST')
           const latest = await exportZip(page, 'production-latest')
           assert.equal((await first.file('production_watermarked.png').async('nodebuffer')).equals(await latest.file('production_watermarked.png').async('nodebuffer')), false)
           await page.locator('.btn-clear-text').click()
           await upload(page, [broken()])
-          await page.locator('.btn-export').click()
+          await page.locator('.export-button').click()
           await page.waitForFunction(() => document.querySelector('.export-status')?.textContent.includes('成功 0 张'))
           assert.match(await page.locator('.export-status').innerText(), /broken.png/)
-          assert.equal(await page.locator('.btn-export').isEnabled(), true)
+          assert.equal(await page.locator('.export-button').isEnabled(), true)
           assert.deepEqual(errors, [])
           return { updatedOutput: true, failureRecovery: true, pageErrors: errors }
         })

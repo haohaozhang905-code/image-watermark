@@ -2,49 +2,50 @@
   <div class="app">
     <header class="app-header">
       <div class="header-inner">
-        <div class="header-brand">
-          <div class="header-logo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path d="M9 12l2 2 4-4" />
-            </svg>
-          </div>
+        <a class="header-brand" href="#" aria-label="隐私水印首页" @click.prevent>
+          <span class="header-logo" aria-hidden="true">印</span>
           <span class="header-title">隐私水印</span>
-          <span class="header-v2-tag">V2</span>
+        </a>
+        <div class="workflow" aria-label="使用流程">
+          <span :class="{ current: !images.length }"><b>1</b>上传图片</span>
+          <i>→</i>
+          <span :class="{ current: images.length > 0 }"><b>2</b>调整水印</span>
+          <i>→</i>
+          <span><b>3</b>导出图片</span>
         </div>
-        <span class="header-sep" />
-        <span class="header-badge"><span class="badge-icon">✨</span>本地智能处理</span>
-        <button type="button" class="btn-config-toggle" @click="sidebarOpen = !sidebarOpen">
-          {{ sidebarOpen ? '收起配置 ▲' : '展开配置 ▼' }}
-        </button>
+        <div class="privacy"><span aria-hidden="true" />图片仅在本地处理</div>
       </div>
     </header>
 
-    <main class="app-main">
-      <!-- 左：配置面板 -->
-      <aside class="sidebar" :class="{ 'sidebar-mobile-open': sidebarOpen, 'sidebar-mobile-hidden': isMobile && !sidebarOpen }">
-        <ConfigPanel
-          :config="config"
-          :processing="processing"
-          @update:config="onConfigUpdate"
-        />
-      </aside>
+    <main class="layout">
+      <nav class="mobile-tabs" aria-label="工作台区域">
+        <button type="button" :class="{ active: mobileView === 'preview' }" :aria-pressed="mobileView === 'preview'" @click="mobileView = 'preview'">图片预览</button>
+        <button type="button" :class="{ active: mobileView === 'settings' }" :aria-pressed="mobileView === 'settings'" @click="mobileView = 'settings'">水印设置</button>
+      </nav>
 
-      <!-- 右：主操作区 -->
-      <div class="content">
-        <PreviewCanvas
-          class="work-preview"
-          :images="images"
-          :config="config"
-          :active-index="activeIndex"
-          @update:active-index="activeIndex = $event"
-          @update:images="onImagesUpdate"
-          @reject-files="onFilesRejected"
-          @image-error="onPreviewImageError"
-        />
+      <div class="workspace" :class="`mobile-show-${mobileView}`">
+        <section class="preview-panel" aria-label="图片预览">
+          <div class="panel-head">
+            <div class="panel-title">
+              <h2>图片预览</h2>
+              <span class="count" aria-live="polite">{{ images.length ? `${images.length} 张图片` : '未添加图片' }}</span>
+            </div>
+            <button type="button" class="text-button" @click="requestUpload">＋ 添加图片</button>
+          </div>
 
-        <div v-if="images.length" class="bottom-controls">
+          <PreviewCanvas
+            class="work-preview"
+            :images="images"
+            :config="config"
+            :active-index="activeIndex"
+            @update:active-index="activeIndex = $event"
+            @update:images="onImagesUpdate"
+            @reject-files="onFilesRejected"
+            @image-error="onPreviewImageError"
+          />
+
           <UploadZone
+            ref="uploadZoneRef"
             class="work-thumbs"
             :images="images"
             :processed-blobs="processedBlobs"
@@ -54,39 +55,29 @@
             @select-image="activeIndex = $event"
             @reject-files="onFilesRejected"
           />
-          <div class="export-actions">
-            <button
-              type="button"
-              class="btn-export"
-              :disabled="!images.length || processing"
-              @click="downloadZip"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              {{ processing ? (progress.phase === 'packing' ? '正在打包…' : `正在处理 ${progress.current}/${progress.total}`) : '导出ZIP结果' }}
-            </button>
-            <div v-if="exportResult" class="export-status" role="status">
-              <p>{{ exportResult.message }}</p>
-              <p v-for="(failure, index) in exportResult.failures" :key="index">
-                {{ failure.name }}：{{ failure.message }}
-              </p>
-            </div>
-          </div>
-        </div>
+        </section>
+
+        <ConfigPanel
+          class="settings-panel"
+          :config="config"
+          :processing="processing"
+          :image-count="images.length"
+          :progress="progress"
+          :export-result="exportResult"
+          @update:config="onConfigUpdate"
+          @export="downloadZip"
+        />
       </div>
     </main>
 
     <Transition name="toast">
-      <div v-if="toast.show" class="toast" :class="toast.type">{{ toast.msg }}</div>
+      <div v-if="toast.show" class="toast" :class="toast.type" role="status">{{ toast.msg }}</div>
     </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive } from 'vue'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import ConfigPanel   from './components/ConfigPanel.vue'
@@ -98,16 +89,8 @@ import { SCENES } from './utils/scenes.js'
 const images         = ref([])
 const processedBlobs = ref([])
 const activeIndex    = ref(0)
-
-// 移动端侧边栏折叠状态
-const isMobile    = ref(false)
-const sidebarOpen = ref(false)
-
-function checkMobile() {
-  isMobile.value = window.innerWidth < 768
-}
-onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
-onUnmounted(() => window.removeEventListener('resize', checkMobile))
+const mobileView     = ref('preview')
+const uploadZoneRef  = ref(null)
 
 const config = ref({ ...SCENES[0].config })
 
@@ -129,6 +112,10 @@ function onImagesUpdate(list) {
   processedBlobs.value = new Array(list.length).fill(null)
   activeIndex.value    = 0
   exportResult.value   = null
+}
+
+function requestUpload() {
+  uploadZoneRef.value?.openFilePicker()
 }
 
 function onFilesRejected(files) {
@@ -224,19 +211,29 @@ function showToast(msg, type = 'info') {
 </script>
 
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  height: 100%;
-  height: 100dvh;
-  overflow: hidden;
+:root {
+  --canvas: #e5e5e5;
+  --paper: #fff;
+  --mist: #f3f3f3;
+  --ink: #161816;
+  --muted: #696c68;
+  --line: #d9dcd6;
+  --mint: #d1ffca;
+  --focus: #476f3e;
 }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #app { width: 100%; height: 100%; overflow: hidden; }
 body {
   font-family: Inter, 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f4f6f8;
-  color: #101828;
+  background: var(--canvas);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
-
+button, textarea, input { font: inherit; }
+button:focus-visible, textarea:focus-visible, input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--focus) 55%, transparent);
+  outline-offset: 2px;
+}
 .app {
   height: 100vh;
   height: 100dvh;
@@ -244,245 +241,137 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f4f6f8;
+  background: var(--canvas);
 }
-
-/* Header */
 .app-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-}
-.header-inner { display: flex; align-items: center; gap: 16px; width: 100%; }
-.header-brand { display: flex; align-items: center; gap: 10px; }
-.header-logo {
-  width: 32px; height: 32px;
-  background: #2563eb;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
-}
-.header-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #101828;
-  letter-spacing: -0.5px;
-}
-.header-v2-tag {
-  font-size: 11px;
-  font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-left: 4px;
-}
-.header-badge {
-  font-size: 13px;
-  font-weight: 600;
-  color: #059669;
-  background: #ecfdf5;
-  border: 1px solid #d1fae5;
-  border-radius: 999px;
-  padding: 4px 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.badge-icon {
-  font-size: 14px;
-}
-
-/* Layout */
-.app-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
+  height: 56px;
+  flex: 0 0 56px;
   width: 100%;
-  max-width: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
-.sidebar {
-  width: 320px;
-  flex-shrink: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border-right: 1px solid #e5e7eb;
-}
-
-.content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 24px;
-  background: #f4f6f8;
-  gap: 12px;
-}
-
-.work-preview {
-  flex: 1;
-  min-height: 0;
-}
-
-/* 底部操作区 */
-.bottom-controls {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.work-thumbs {
-  flex: 1;
-  min-width: 0;
-}
-
-.export-actions {
-  flex-shrink: 0;
-  padding-bottom: 4px; /* 对齐缩略图卡片底部 */
-}
-
-.export-status {
-  max-width: 240px;
-  max-height: 96px;
-  overflow-y: auto;
-  overflow-wrap: anywhere;
-  margin-top: 8px;
-  color: #6a7282;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.btn-export {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 48px;
   padding: 0 24px;
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
-
-.btn-export:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+.header-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  max-width: 1600px;
+  height: 100%;
+  margin: 0 auto;
 }
-
-.btn-export:disabled {
-  background: #9ca3af;
-  cursor: not-allowed;
-  box-shadow: none;
+.header-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.header-logo {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--mint);
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 700;
+  transform: rotate(-5deg);
 }
-
-.header-sep {
-  width: 1px;
-  height: 16px;
-  background: #d1d5dc;
-  flex-shrink: 0;
+.header-title { font-size: 18px; letter-spacing: -.6px; font-weight: 650; }
+.workflow { display: flex; align-items: center; gap: 14px; color: #6d7566; font-size: 11px; white-space: nowrap; }
+.workflow span { display: inline-flex; align-items: center; }
+.workflow b {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #ffffffa0;
+  font-size: 10px;
+  font-weight: 500;
 }
-
-/* 移动端折叠按钮：桌面隐藏 */
-.btn-config-toggle {
-  display: none;
+.workflow .current { color: #283d1e; font-weight: 600; }
+.workflow .current b { background: var(--mint); }
+.workflow i { color: #8a8f84; font-style: normal; }
+.privacy { justify-self: end; display: flex; align-items: center; gap: 7px; color: #5d6657; font-size: 11px; white-space: nowrap; }
+.privacy span { width: 6px; height: 6px; border-radius: 50%; background: #4e7b40; }
+.layout {
+  width: 100%;
+  max-width: 1600px;
+  padding: 0 20px 16px;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-
-@media (max-width: 767px) {
-  .btn-config-toggle {
-    display: inline-flex;
-    margin-left: auto;
-    padding: 6px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #f9fafb;
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .app-main {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .sidebar {
-    width: 100%;
-    max-height: 60vh;
-    border-right: none;
-    border-bottom: 1px solid #e5e7eb;
-    overflow-y: auto;
-    flex-shrink: 0;
-  }
-
-  .sidebar-mobile-hidden {
-    display: none;
-  }
-
-  .content {
-    padding: 12px;
-    overflow-y: auto;
-    min-height: 0;
-    flex: 1;
-  }
-
-  .app {
-    overflow-y: auto;
-    height: auto;
-    min-height: 100dvh;
-  }
-
-  html, body {
-    overflow: auto;
-    height: auto;
-  }
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: stretch;
 }
-
-/* Toast */
+.preview-panel, .settings-panel {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-radius: 22px;
+}
+.preview-panel { min-width: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 17px 20px 14px; }
+.panel-title { display: flex; align-items: center; gap: 9px; }
+.panel-title h2, .settings-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.3px; }
+.count { padding: 3px 8px; border-radius: 20px; background: var(--mist); color: #6d7268; font-size: 10px; }
+.text-button { border: 0; background: transparent; padding: 6px; color: #526046; font-size: 11px; cursor: pointer; }
+.text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.work-preview { flex: 1; min-height: 0; }
+.work-thumbs { flex-shrink: 0; }
+.mobile-tabs { display: none; }
 .toast {
   position: fixed;
-  top: 28px;
+  z-index: 1000;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 11px 22px;
-  border-radius: 20px;
+  max-width: min(90vw, 560px);
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #fff;
   font-size: 13px;
-  font-weight: 500;
-  z-index: 9999;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  white-space: nowrap;
+  box-shadow: 0 5px 20px #0002;
 }
-.toast.success { background: #34c759; color: #fff; }
-.toast.info    { background: #007AFF; color: #fff; }
-.toast.error   { background: #ff3b30; color: #fff; }
-
-.toast-enter-active, .toast-leave-active { transition: opacity 0.25s, transform 0.25s; }
-.toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-.toast-leave-to   { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-
+.toast.success { background: #38652f; }
+.toast.info { background: #30362e; }
+.toast.error { background: #a53b32; }
+.toast-enter-active, .toast-leave-active { transition: opacity .18s, transform .18s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -8px); }
+@media (max-width: 900px) and (min-width: 701px) {
+  .layout { padding-right: 12px; padding-left: 12px; }
+  .workspace { grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
+  .header-inner { gap: 10px; }
+}
+@media (max-width: 700px) {
+  .app-header { height: 52px; flex-basis: 52px; padding: 0 16px; }
+  .header-inner { grid-template-columns: 1fr auto; }
+  .workflow, .privacy { display: none; }
+  .layout { padding: 0 10px 10px; }
+  .mobile-tabs { display: flex; flex: 0 0 auto; gap: 7px; padding: 0 2px 10px; }
+  .mobile-tabs button {
+    flex: 1;
+    border: 1px solid #d5dacd;
+    border-radius: 9px;
+    padding: 9px 10px;
+    background: #f4f5f1;
+    color: #65705e;
+    font-size: 12px;
+  }
+  .mobile-tabs button.active { border-color: #a8c39e; background: #e4f5df; color: #24341e; font-weight: 600; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .preview-panel, .settings-panel { border-radius: 18px; }
+  .workspace.mobile-show-preview .settings-panel, .workspace.mobile-show-settings .preview-panel { display: none; }
+  .panel-head { padding: 13px 14px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
 </style>

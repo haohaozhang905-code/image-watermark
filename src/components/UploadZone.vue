@@ -6,7 +6,7 @@
       @dragleave.prevent="isDragging = false"
       @drop.prevent.stop="onDrop"
     >
-      <div class="thumb-strip-card">
+      <div v-if="images.length" class="thumb-strip-card">
         <div class="thumb-strip-row">
           <div class="thumb-strip-scroll">
             <div v-for="(file, idx) in images" :key="file.name + idx" class="thumb-item">
@@ -108,11 +108,17 @@ function onFileChange(e) {
   addFiles(e.target.files)
   e.target.value = ''
 }
+
+function openFilePicker() {
+  if (!props.processing) fileInput.value?.click()
+}
+
+defineExpose({ openFilePicker })
 </script>
 
 <style scoped>
 .upload-zone {
-  --thumb: clamp(44px, 8vw, 54px);
+  --thumb: 46px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -135,11 +141,11 @@ function onFileChange(e) {
 
 /* —— 缩略图条：紧凑容器；清空与缩略图同一行，不单独占顶栏 —— */
 .thumb-strip-card {
-  border-radius: 8px;
-  border: 1px solid rgba(229, 231, 235, 0.65);
-  background: rgba(255, 255, 255, 0.85);
+  border-radius: 0 0 22px 22px;
+  border: 0;
+  background: #fff;
   box-shadow: none;
-  padding: 4px 6px;
+  padding: 3px 17px 13px;
   box-sizing: border-box;
 }
 
@@ -147,7 +153,7 @@ function onFileChange(e) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
 }
 
@@ -157,7 +163,7 @@ function onFileChange(e) {
   background: none;
   font-size: 12px;
   font-weight: 500;
-  color: #6a7282;
+  color: #73796f;
   cursor: pointer;
   font-family: inherit;
   padding: 4px 6px;
@@ -181,15 +187,15 @@ function onFileChange(e) {
   gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 4px; /* 为滚动条留点空间 */
+  padding-bottom: 0;
 }
 
 /* 隐藏滚动条但保留滚动功能 (可选，看帅哥喜好，这里先加上) */
 .thumb-strip-scroll::-webkit-scrollbar {
-  height: 4px;
+  height: 3px;
 }
 .thumb-strip-scroll::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
+  background: #e0e4dc;
   border-radius: 2px;
 }
 
@@ -200,12 +206,12 @@ function onFileChange(e) {
   height: var(--thumb);
   box-sizing: border-box;
   padding: 2px;
-  border-radius: 10px;
+  border-radius: 9px;
   border: 2px solid transparent;
   background: transparent;
   cursor: pointer;
   overflow: hidden;
-  opacity: 0.6;
+  opacity: 0.72;
   transition: opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 .thumb-tile:hover {
@@ -213,8 +219,8 @@ function onFileChange(e) {
 }
 .thumb-tile.active {
   opacity: 1;
-  border-color: #2b7fff;
-  box-shadow: 0 0 0 2px rgba(43, 127, 255, 0.2);
+  border-color: #5d7a51;
+  box-shadow: 0 0 0 2px rgba(94, 122, 81, 0.13);
 }
 .thumb-item {
   position: relative;
@@ -250,8 +256,8 @@ function onFileChange(e) {
   font-weight: 700;
   line-height: 1;
 }
-.btn-rm { background: rgba(0, 0, 0, 0.5); color: #fff; }
-.btn-rm:hover { background: #ef4444; }
+.btn-rm { background: rgba(23, 28, 22, 0.78); color: #fff; }
+.btn-rm:hover { background: #a53b32; }
 
 .thumb-img {
   display: block;
@@ -267,7 +273,7 @@ function onFileChange(e) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981;
+  background: #5d884d;
   border: 2px solid #fff;
 }
 
@@ -278,8 +284,8 @@ function onFileChange(e) {
   box-sizing: border-box;
   padding: 2px;
   border-radius: 10px;
-  border: 2px dashed #d1d5dc;
-  background: rgba(249, 250, 251, 0.5);
+  border: 1px dashed #c8cec3;
+  background: #f8f9f6;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -297,9 +303,9 @@ function onFileChange(e) {
   max-height: 22px;
 }
 .thumb-add:hover {
-  border-color: #007aff;
-  color: #007aff;
-  background: rgba(239, 246, 255, 0.45);
+  border-color: #718767;
+  color: #526d45;
+  background: #f3f7ef;
 }
 .thumb-add-label {
   font-size: 9px;
@@ -313,14 +319,14 @@ function onFileChange(e) {
   inset: 0;
   z-index: 10;
   border-radius: 12px;
-  border: 2px dashed #007aff;
-  background: rgba(0, 122, 255, 0.07);
+  border: 2px dashed #718767;
+  background: rgba(209, 255, 202, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   font-weight: 600;
-  color: #007aff;
+  color: #526d45;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;

@@ -1,13 +1,14 @@
 <template>
   <div class="upload-drop-root">
-    <button
-      type="button"
+    <div
       class="drop-area"
       :class="{ dragging: isDragging }"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent.stop="onDrop"
-      @click="fileInput.click()"
+      @click.self="fileInput.click()"
+      role="group"
+      aria-label="选择图片或将图片拖到这里"
     >
       <div class="drop-inner">
         <div class="drop-icon-wrap">
@@ -18,13 +19,14 @@
           </svg>
         </div>
         <p class="drop-title">将图片拖到这里</p>
-        <p class="drop-sub">或 <span class="link">点击选择文件</span></p>
+        <p class="drop-sub">支持 JPG、PNG、WEBP，单张最大 10MB</p>
+        <button type="button" class="choose-button" @click.stop="fileInput.click()">选择图片</button>
+        <button type="button" class="sample-button" @click.stop="loadSample">先用示例体验一下 <span aria-hidden="true">→</span></button>
         <div class="drop-meta">
-          <span>支持 JPG, PNG, WEBP</span>
-          <span>最大 10MB/张</span>
+          <span>图片仅在本地处理</span>
         </div>
       </div>
-    </button>
+    </div>
     <input
       ref="fileInput"
       type="file"
@@ -63,6 +65,17 @@ function onFileChange(e) {
   addFiles(e.target.files)
   e.target.value = ''
 }
+
+async function loadSample() {
+  try {
+    const response = await fetch('/sample-landscape.jpg')
+    if (!response.ok) throw new Error('示例图片暂时无法加载')
+    const blob = await response.blob()
+    addFiles([new File([blob], '山野风景.jpg', { type: 'image/jpeg' })])
+  } catch (error) {
+    emit('reject-files', [{ name: '示例图片', reason: error.message || '加载失败' }])
+  }
+}
 </script>
 
 <style scoped>
@@ -73,7 +86,7 @@ function onFileChange(e) {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 12px;
+  padding: 14px;
   box-sizing: border-box;
   pointer-events: auto;
 }
@@ -94,21 +107,21 @@ function onFileChange(e) {
   min-height: 0;
   width: 100%;
   margin: 0;
-  border: 2px dashed #d1d5dc;
-  border-radius: clamp(14px, 2vw, 20px);
+  border: 1px dashed #c8cec3;
+  border-radius: 17px;
   cursor: pointer;
-  background: rgba(249, 250, 251, 0.92);
+  background: #f8f9f6;
   font-family: inherit;
   box-sizing: border-box;
   transition: border-color 0.2s, background 0.2s;
 }
 .drop-area:hover,
 .drop-area.dragging {
-  border-color: #007aff;
-  background: rgba(239, 246, 255, 0.55);
+  border-color: #718767;
+  background: #f3f7ef;
 }
 .drop-area:focus-visible {
-  outline: 2px solid #007aff;
+  outline: 2px solid #526d45;
   outline-offset: 2px;
 }
 
@@ -117,34 +130,34 @@ function onFileChange(e) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: clamp(20px, 4vw, 36px) clamp(16px, 3vw, 24px);
+  gap: 10px;
+  padding: clamp(16px, 4vw, 36px) clamp(16px, 3vw, 24px);
   min-height: 100%;
   box-sizing: border-box;
 }
 
 .drop-icon-wrap {
-  width: clamp(64px, 12vw, 80px);
-  height: clamp(64px, 12vw, 80px);
+  width: 58px;
+  height: 58px;
   border-radius: 16px;
-  background: #eff6ff;
+  background: #e4f5df;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #3b82f6;
-  margin-bottom: 6px;
+  color: #476f3e;
+  margin-bottom: 2px;
   transition: background 0.2s, color 0.2s;
 }
 .drop-area:hover .drop-icon-wrap,
 .drop-area.dragging .drop-icon-wrap {
-  background: #dbeafe;
-  color: #2563eb;
+  background: #d1ffca;
+  color: #365a2d;
 }
 
 .drop-title {
-  font-size: clamp(16px, 2.4vw, 18px);
+  font-size: clamp(16px, 2.4vw, 19px);
   font-weight: 600;
-  color: #101828;
+  color: #20251f;
   letter-spacing: -0.3px;
   line-height: 1.35;
   text-align: center;
@@ -152,17 +165,17 @@ function onFileChange(e) {
 }
 
 .drop-sub {
-  font-size: clamp(13px, 1.8vw, 15px);
-  color: #6a7282;
+  font-size: 12px;
+  color: #70766d;
   letter-spacing: -0.15px;
   line-height: 1.4;
   text-align: center;
   margin: 0;
 }
-.link {
-  color: #007aff;
-  font-weight: 400;
-}
+.choose-button { border: 0; border-radius: 9px; background: #d1ffca; color: #25351f; padding: 11px 24px; margin-top: 5px; font-size: 13px; font-weight: 650; cursor: pointer; transition: background .15s, transform .15s; }
+.choose-button:hover { background: #baf5af; transform: translateY(-1px); }
+.sample-button { border: 0; padding: 4px 8px; background: transparent; color: #536a49; font-size: 11px; cursor: pointer; }
+.sample-button:hover { color: #273c21; text-decoration: underline; text-underline-offset: 3px; }
 
 .drop-meta {
   display: flex;
@@ -170,13 +183,13 @@ function onFileChange(e) {
   align-items: center;
   justify-content: center;
   gap: 12px 16px;
-  margin-top: 14px;
-  padding: 8px 16px;
+  margin-top: 2px;
+  padding: 6px 11px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(229, 231, 235, 0.9);
-  font-size: 12px;
+  background: #eef1eb;
+  border: 0;
+  font-size: 10px;
   line-height: 1.35;
-  color: #99a1af;
+  color: #747b70;
 }
 </style>

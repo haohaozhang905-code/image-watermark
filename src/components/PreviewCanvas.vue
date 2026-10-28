@@ -204,28 +204,28 @@ onUnmounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  padding: 0 14px 10px;
+  border-radius: 0;
+  border: 0;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
 .nav-pill {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 24px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  padding: 0 8px;
-  border-radius: 8px;
-  background: rgba(243, 244, 246, 0.92);
-  border: 1px solid rgba(229, 231, 235, 0.9);
-  font-size: 12px;
+  padding: 0 9px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(215, 220, 211, 0.9);
+  font-size: 11px;
   font-weight: 500;
-  color: #6a7282;
+  color: #626a5d;
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
@@ -236,9 +236,9 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
   width: 100%;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 13px;
+  background: #e8e9e6;
+  box-shadow: inset 0 0 0 1px #e0e2dc;
   overflow: hidden;
 }
 
@@ -259,24 +259,31 @@ onUnmounted(() => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 36px;
-  height: 56px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.28);
-  color: #fff;
-  font-size: 24px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(218, 222, 213, .9);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: #263022;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, opacity 0.15s;
+  transition: background 0.15s, opacity 0.15s, box-shadow .15s;
+  box-shadow: 0 3px 12px rgba(22, 28, 20, .12);
   font-family: inherit;
   z-index: 2;
 }
-.nav-overlay:hover:not(:disabled) { background: rgba(0, 0, 0, 0.5); }
-.nav-overlay:disabled { opacity: 0.2; cursor: not-allowed; }
-.nav-prev { left: 8px; }
-.nav-next { right: 8px; }
+.nav-overlay:hover:not(:disabled) { background: #d1ffca; box-shadow: 0 4px 14px rgba(22, 28, 20, .18); }
+.nav-overlay:disabled { opacity: 0; pointer-events: none; }
+.nav-prev { left: 12px; }
+.nav-next { right: 12px; }
+@media (max-width: 700px) {
+  .preview-card { padding: 0 8px 8px; }
+  .canvas-shell { border-radius: 10px; }
+  .nav-prev { left: 8px; }
+  .nav-next { right: 8px; }
+}
 </style>
