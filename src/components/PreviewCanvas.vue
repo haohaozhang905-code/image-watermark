@@ -8,6 +8,7 @@
         v-if="!images.length"
         :images="images"
         @update:images="emit('update:images', $event)"
+        @reject-files="emit('reject-files', $event)"
       />
       <button
         v-if="images.length > 1"
@@ -31,7 +32,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
-import { renderPreview, renderPreviewFromImg } from '../utils/watermark.js'
+import { assertImagePixels, loadImage, renderPreviewFromImg } from '../utils/watermark.js'
 import UploadDropArea from './UploadDropArea.vue'
 
 const props = defineProps({
@@ -39,13 +40,14 @@ const props = defineProps({
   config:      { type: Object, required: true },
   activeIndex: { type: Number, default: 0 },
 })
-const emit = defineEmits(['update:activeIndex', 'update:images'])
+const emit = defineEmits(['update:activeIndex', 'update:images', 'reject-files', 'image-error'])
 
 const canvasEl = ref(null)
 const boxEl    = ref(null)
 
 const imgCache = ref(null)
 let   lastFile = null
+let   loadVersion = 0
 
 function initCanvas() {
   const canvas = canvasEl.value
@@ -64,8 +66,9 @@ function initCanvas() {
 
 function redraw() {
   if (!canvasEl.value) return
-  if (!props.images.length) {
+  if (!imgCache.value) {
     const ctx = canvasEl.value.getContext('2d')
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvasEl.value.width, canvasEl.value.height)
     return
   }
@@ -76,17 +79,32 @@ function redraw() {
 
 function loadAndDraw() {
   initCanvas()
-  if (!props.images.length) { redraw(); return }
   const file = props.images[props.activeIndex]
-  if (!file) return
-  if (file === lastFile && imgCache.value) {
-    renderPreviewFromImg(canvasEl.value, imgCache.value, props.config)
+  if (!file) {
+    loadVersion++
+    lastFile = null
+    imgCache.value = null
+    redraw()
+    return
+  }
+  if (file === lastFile) {
+    redraw()
     return
   }
   lastFile = file
+  const version = ++loadVersion
   imgCache.value = null
-  renderPreview(canvasEl.value, file, props.config, (img) => {
+  redraw()
+  loadImage(file).then((img) => {
+    if (version !== loadVersion || file !== props.images[props.activeIndex]) return
+    assertImagePixels(img)
     imgCache.value = img
+    redraw()
+  }).catch((error) => {
+    if (version !== loadVersion) return
+    imgCache.value = null
+    redraw()
+    emit('image-error', { name: file.name, message: error.message || '无法读取图片' })
   })
 }
 
@@ -94,20 +112,9 @@ watch(() => props.config, () => {
   if (imgCache.value) renderPreviewFromImg(canvasEl.value, imgCache.value, props.config)
 }, { deep: true })
 
-watch(() => props.activeIndex, () => {
-  imgCache.value = null
-  lastFile = null
-  loadAndDraw()
-})
-
-watch(() => props.images, (newList) => {
-  if (newList.length === 0) { imgCache.value = null; lastFile = null; redraw(); return }
-  if (newList[props.activeIndex] === lastFile && imgCache.value) {
-    renderPreviewFromImg(canvasEl.value, imgCache.value, props.config)
-  } else {
-    loadAndDraw()
-  }
-}, { deep: false })
+// Observe both selection and the list itself. This also refreshes the canvas
+// when the selected file is replaced while its index stays the same.
+watch(() => [props.activeIndex, props.images], loadAndDraw)
 
 function prev() {
   if (props.activeIndex > 0) emit('update:activeIndex', props.activeIndex - 1)
@@ -118,8 +125,19 @@ function next() {
 
 function onKeyDown(e) {
   if (!props.images.length) return
-  if (e.key === 'ArrowLeft')  prev()
-  if (e.key === 'ArrowRight') next()
+  const target = e.target
+  if (target instanceof HTMLElement && (
+    target.isContentEditable ||
+    target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
+  )) return
+  if (e.key === 'ArrowLeft' && props.activeIndex > 0) {
+    e.preventDefault()
+    prev()
+  }
+  if (e.key === 'ArrowRight' && props.activeIndex < props.images.length - 1) {
+    e.preventDefault()
+    next()
+  }
 }
 
 let resizeObs = null
@@ -174,6 +192,7 @@ watchEffect((onCleanup) => {
   })
 })
 onUnmounted(() => {
+  loadVersion++
   resizeObs?.disconnect()
   window.removeEventListener('keydown', onKeyDown)
 })

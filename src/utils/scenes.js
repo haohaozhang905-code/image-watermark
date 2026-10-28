@@ -39,7 +39,7 @@ export const SCENES = [
     config: {
       text: '仅供租房合同备案使用',
       spacing: 'medium',
-      opacity: 0.12,
+      opacity: 0.18,
       color: '#000000',
       layout: 'tile',
       fontSize: 3.5,

@@ -9,11 +9,13 @@
         </div>
 
         <div class="scene-grid">
-          <div
+          <button
             v-for="scene in SCENES"
             :key="scene.id"
+            type="button"
             class="scene-card"
             :class="{ active: currentSceneId === scene.id }"
+            :aria-pressed="currentSceneId === scene.id"
             @click="selectScene(scene)"
           >
             <div class="scene-icon-wrap">
@@ -23,25 +25,27 @@
               <div class="scene-title">{{ scene.title }}</div>
               <div class="scene-desc">{{ scene.description }}</div>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
       <!-- 2. 高级设置 (折叠面板) -->
       <div class="form-section">
-        <div class="section-header clickable" @click="isAdvancedOpen = !isAdvancedOpen">
+        <button type="button" class="section-header clickable" :aria-expanded="isAdvancedOpen" @click="!processing && (isAdvancedOpen = !isAdvancedOpen)">
           <div class="header-left">
             <span class="section-step">2</span>
-            <label class="section-title">高级 / 手动调整策略</label>
+            <span class="section-title">高级 / 手动调整策略</span>
           </div>
           <span class="collapse-icon" :class="{ open: isAdvancedOpen }">▼</span>
-        </div>
+        </button>
 
         <div v-show="isAdvancedOpen" class="advanced-content">
           <div class="form-item">
-            <label class="form-label">水印文字内容</label>
+            <label class="form-label" for="watermark-text">水印文字内容</label>
             <textarea
+              id="watermark-text"
               v-model="cfg.text"
+              :disabled="processing"
               rows="2"
               placeholder="请输入水印文字"
               class="input-textarea"
@@ -55,6 +59,7 @@
                 v-for="s in spacingOptions"
                 :key="s.value"
                 type="button"
+                :disabled="processing"
                 class="seg-btn"
                 :class="{ active: cfg.spacing === s.value }"
                 @click="cfg.spacing = s.value"
@@ -64,11 +69,13 @@
 
           <div class="form-item">
             <div class="label-row">
-              <label class="form-label">透明度</label>
+              <label class="form-label" for="watermark-opacity">透明度</label>
               <span class="val-pill">{{ Math.round(cfg.opacity * 100) }}%</span>
             </div>
             <input
+              id="watermark-opacity"
               type="range"
+              :disabled="processing"
               v-model.number="cfg.opacity"
               min="0.05"
               max="1"
@@ -85,6 +92,8 @@
                 v-for="c in presetColors"
                 :key="c.value"
                 type="button"
+                :disabled="processing"
+                :aria-label="`水印颜色：${c.label}`"
                 class="color-dot"
                 :class="{ active: cfg.color === c.value }"
                 :style="colorDotStyle(c)"
@@ -96,27 +105,6 @@
       </div>
     </div>
 
-    <!-- 底部固定操作区 -->
-    <div class="panel-footer">
-      <button
-        type="button"
-        class="btn-smart"
-        :disabled="!hasImages || processing"
-        @click="emit('process')"
-      >
-        <div v-if="processing" class="btn-loading">
-          <span class="spin">⏳</span>
-          <span>正在批量嵌入安全水印...</span>
-        </div>
-        <div v-else class="btn-content">
-          <span class="smart-icon">✨</span>
-          <span>智能识别与处理{{ hasImages ? ` (${imageCount}张)` : '' }}</span>
-        </div>
-      </button>
-      <div v-if="processing" class="footer-status">
-        ⚡ 正在批量嵌入安全水印...
-      </div>
-    </div>
   </div>
 </template>
 
@@ -126,13 +114,9 @@ import { SCENES } from '../utils/scenes'
 
 const props = defineProps({
   config:         { type: Object,  required: true },
-  hasImages:      { type: Boolean, default: false },
-  imageCount:     { type: Number,  default: 0 },
   processing:     { type: Boolean, default: false },
-  progress:       { type: Object,  default: () => ({ current: 0, total: 0 }) },
-  processedCount: { type: Number,  default: 0 },
 })
-const emit = defineEmits(['update:config', 'process', 'download-zip'])
+const emit = defineEmits(['update:config'])
 
 const cfg = reactive({ ...props.config })
 const currentSceneId = ref('custom')
@@ -145,10 +129,16 @@ onMounted(() => {
   if (matched) currentSceneId.value = matched.id
 })
 
-watch(cfg, (val) => emit('update:config', { ...val }), { deep: true })
+watch(cfg, (val) => {
+  currentSceneId.value = SCENES.find(scene => scene.config &&
+    Object.entries(scene.config).every(([key, value]) => val[key] === value)
+  )?.id || 'custom'
+  emit('update:config', { ...val })
+}, { deep: true })
 watch(() => props.config, (val) => Object.assign(cfg, val), { deep: true })
 
 function selectScene(scene) {
+  if (props.processing) return
   currentSceneId.value = scene.id
   if (scene.config) {
     Object.assign(cfg, scene.config)
@@ -159,12 +149,7 @@ function selectScene(scene) {
 }
 
 function getSceneIcon(icon) {
-  const icons = {
-    briefcase: '💼',
-    bank: '🏦',
-    home: '🏠',
-    settings: '🎨'
-  }
+  const icons = { briefcase: '💼', bank: '🏦', home: '🏠', settings: '🎨' }
   return icons[icon] || '📄'
 }
 
@@ -224,6 +209,12 @@ const spacingOptions = [
 }
 
 .section-header.clickable {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
   justify-content: space-between;
 }
@@ -260,10 +251,14 @@ const spacingOptions = [
 }
 
 .scene-card {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -502,4 +497,5 @@ const spacingOptions = [
   justify-content: center;
   gap: 4px;
 }
+
 </style>

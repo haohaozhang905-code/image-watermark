@@ -6,7 +6,7 @@
       :class="{ dragging: isDragging }"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
-      @drop.prevent="onDrop"
+      @drop.prevent.stop="onDrop"
       @click="fileInput.click()"
     >
       <div class="drop-inner">
@@ -38,23 +38,20 @@
 
 <script setup>
 import { ref } from 'vue'
-
-const MAX_BYTES = 10 * 1024 * 1024
+import { classifyUploads } from '../utils/uploads.js'
 
 const props = defineProps({
   images: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['update:images'])
+const emit = defineEmits(['update:images', 'reject-files'])
 
 const fileInput = ref(null)
 const isDragging = ref(false)
 
 function addFiles(fileList) {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp']
-  const valid = Array.from(fileList).filter(
-    (f) => allowed.includes(f.type) && f.size <= MAX_BYTES
-  )
-  emit('update:images', [...props.images, ...valid].slice(0, 100))
+  const { valid, rejected } = classifyUploads(fileList, props.images)
+  if (valid.length) emit('update:images', [...props.images, ...valid])
+  if (rejected.length) emit('reject-files', rejected)
 }
 
 function onDrop(e) {

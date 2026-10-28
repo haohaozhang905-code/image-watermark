@@ -13,10 +13,7 @@
           <span class="header-v2-tag">V2</span>
         </div>
         <span class="header-sep" />
-        <span class="header-badge">
-          <span class="badge-icon">✨</span>
-          本地智能处理
-        </span>
+        <span class="header-badge"><span class="badge-icon">✨</span>本地智能处理</span>
         <button type="button" class="btn-config-toggle" @click="sidebarOpen = !sidebarOpen">
           {{ sidebarOpen ? '收起配置 ▲' : '展开配置 ▼' }}
         </button>
@@ -28,14 +25,8 @@
       <aside class="sidebar" :class="{ 'sidebar-mobile-open': sidebarOpen, 'sidebar-mobile-hidden': isMobile && !sidebarOpen }">
         <ConfigPanel
           :config="config"
-          :has-images="images.length > 0"
-          :image-count="images.length"
           :processing="processing"
-          :progress="progress"
-          :processed-count="processedBlobs.filter(Boolean).length"
-          @update:config="config = $event"
-          @process="startProcess"
-          @download-zip="downloadZip"
+          @update:config="onConfigUpdate"
         />
       </aside>
 
@@ -48,6 +39,8 @@
           :active-index="activeIndex"
           @update:active-index="activeIndex = $event"
           @update:images="onImagesUpdate"
+          @reject-files="onFilesRejected"
+          @image-error="onPreviewImageError"
         />
 
         <div v-if="images.length" class="bottom-controls">
@@ -56,14 +49,16 @@
             :images="images"
             :processed-blobs="processedBlobs"
             :active-index="activeIndex"
+            :processing="processing"
             @update:images="onImagesUpdate"
             @select-image="activeIndex = $event"
+            @reject-files="onFilesRejected"
           />
           <div class="export-actions">
             <button
               type="button"
               class="btn-export"
-              :disabled="!processedBlobs.some(Boolean) || processing"
+              :disabled="!images.length || processing"
               @click="downloadZip"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -71,8 +66,14 @@
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              导出ZIP结果
+              {{ processing ? (progress.phase === 'packing' ? '正在打包…' : `正在处理 ${progress.current}/${progress.total}`) : '导出ZIP结果' }}
             </button>
+            <div v-if="exportResult" class="export-status" role="status">
+              <p>{{ exportResult.message }}</p>
+              <p v-for="(failure, index) in exportResult.failures" :key="index">
+                {{ failure.name }}：{{ failure.message }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -85,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import ConfigPanel   from './components/ConfigPanel.vue'
@@ -108,74 +109,110 @@ function checkMobile() {
 onMounted(() => { checkMobile(); window.addEventListener('resize', checkMobile) })
 onUnmounted(() => window.removeEventListener('resize', checkMobile))
 
-const config = ref({
-  text:        '仅用于入职背景调查，他用无效',
-  fontSize:    4,
-  fontWeight:  400,
-  color:       '#000000',
-  opacity:     0.3,
-  layout:      'tile',
-  rotation:    -30,
-  spacing:     'dense',
-})
-
-const currentSceneName = computed(() => {
-  const matched = SCENES.find(s => s.config && s.config.text === config.value.text)
-  return matched ? matched.title : '自定义'
-})
+const config = ref({ ...SCENES[0].config })
 
 const processing = ref(false)
-const progress   = reactive({ current: 0, total: 0 })
+const progress   = reactive({ current: 0, total: 0, phase: 'processing' })
 const toast      = reactive({ show: false, msg: '', type: 'info' })
+const exportResult = ref(null)
+
+function onConfigUpdate(value) {
+  if (processing.value) return
+  config.value = value
+  processedBlobs.value = []
+  exportResult.value = null
+}
 
 function onImagesUpdate(list) {
+  if (processing.value) return
   images.value         = list
   processedBlobs.value = new Array(list.length).fill(null)
   activeIndex.value    = 0
+  exportResult.value   = null
 }
 
-async function startProcess() {
-  if (!images.value.length || processing.value) return
-  processing.value     = true
-  progress.current     = 0
-  progress.total       = images.value.length
-  processedBlobs.value = new Array(images.value.length).fill(null)
+function onFilesRejected(files) {
+  if (!files.length) return
+  const names = files.slice(0, 3).map(file => `${file.name}（${file.reason}）`).join('；')
+  showToast(`未添加 ${files.length} 张${names ? `：${names}` : ''}${files.length > 3 ? '；其余文件有相同限制' : ''}`, 'error')
+}
 
-  for (let i = 0; i < images.value.length; i++) {
-    try {
-      processedBlobs.value[i] = await applyWatermark(images.value[i], config.value)
-    } catch (e) {
-      console.error('处理失败:', images.value[i].name, e)
-    }
-    progress.current = i + 1
+function onPreviewImageError(error) {
+  showToast(`${error.name}：${error.message}`, 'error')
+}
+
+function uniqueOutputName(name, usedNames) {
+  const dot = name.lastIndexOf('.')
+  const base = dot > 0 ? name.slice(0, dot) : name
+  const ext = dot > 0 ? name.slice(dot) : ''
+  let outputName = `${base}_watermarked${ext}`
+  let suffix = 2
+  while (usedNames.has(outputName.toLowerCase())) {
+    outputName = `${base}_watermarked_${suffix++}${ext}`
   }
-
-  processing.value = false
-  showToast(`处理完成，共 ${progress.total} 张`, 'success')
+  usedNames.add(outputName.toLowerCase())
+  return outputName
 }
 
 async function downloadZip() {
-  if (!images.value.length) return
-
-  // 如果还没处理过，或者中途改了配置，先执行一遍处理逻辑
-  if (!processedBlobs.value.some(Boolean) || processing.value) {
-    await startProcess()
+  if (!images.value.length || processing.value) return
+  if (!String(config.value.text || '').trim()) {
+    const message = '请先填写水印文字，再导出图片'
+    exportResult.value = { message, failures: [] }
+    showToast(message, 'error')
+    return
   }
+  processing.value = true
+  // 固定本次任务的图片身份与配置；每次导出重新生成，不复用旧配置的 Blob。
+  const files = [...images.value]
+  const taskConfig = { ...config.value }
+  const results = []
+  const failures = []
+  processedBlobs.value = []
+  exportResult.value = null
+  Object.assign(progress, { current: 0, total: files.length, phase: 'processing' })
 
-  showToast('正在打包…', 'info')
-  const zip = new JSZip()
-  processedBlobs.value.forEach((blob, i) => {
-    if (!blob) return
-    const n   = images.value[i].name
-    const dot = n.lastIndexOf('.')
-    zip.file(
-      dot === -1 ? n + '_watermarked' : n.slice(0, dot) + '_watermarked' + n.slice(dot),
-      blob
-    )
-  })
-  const zipBlob = await zip.generateAsync({ type: 'blob' })
-  saveAs(zipBlob, `watermarked_${Date.now()}.zip`)
-  showToast('ZIP 下载成功', 'success')
+  try {
+    for (const file of files) {
+      try {
+        const blob = await applyWatermark(file, taskConfig)
+        results.push({ file, blob })
+      } catch (error) {
+        failures.push({ name: file.name, message: error.message || '图片处理失败' })
+      }
+      progress.current++
+    }
+
+    if (!results.length) {
+      const message = `导出失败：成功 0 张，失败 ${failures.length} 张`
+      exportResult.value = { message, failures }
+      showToast(message, 'error')
+      return
+    }
+
+    progress.phase = 'packing'
+    const zip = new JSZip()
+    const usedNames = new Set()
+    for (const { file, blob } of results) {
+      zip.file(uniqueOutputName(file.name, usedNames), blob)
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' })
+    saveAs(zipBlob, `watermarked_${Date.now()}.zip`)
+    // 状态只关联任务中实际成功的 File，不依赖可能变化的列表下标。
+    const blobsByFile = new Map(results.map(({ file, blob }) => [file, blob]))
+    processedBlobs.value = images.value.map(file => blobsByFile.get(file) || null)
+    const message = failures.length
+      ? `已导出 ${results.length} 张，失败 ${failures.length} 张`
+      : `已导出 ${results.length} 张`
+    exportResult.value = { message, failures }
+    showToast(message, failures.length ? 'info' : 'success')
+  } catch (error) {
+    const message = `导出失败：${error.message || '打包失败，请重试'}`
+    exportResult.value = { message, failures }
+    showToast(message, 'error')
+  } finally {
+    processing.value = false
+  }
 }
 
 let toastTimer = null
@@ -322,6 +359,17 @@ body {
   padding-bottom: 4px; /* 对齐缩略图卡片底部 */
 }
 
+.export-status {
+  max-width: 240px;
+  max-height: 96px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  margin-top: 8px;
+  color: #6a7282;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .btn-export {
   display: flex;
   align-items: center;
@@ -436,4 +484,5 @@ body {
 .toast-enter-active, .toast-leave-active { transition: opacity 0.25s, transform 0.25s; }
 .toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 .toast-leave-to   { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+
 </style>

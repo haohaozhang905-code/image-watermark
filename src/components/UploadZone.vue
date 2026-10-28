@@ -4,33 +4,26 @@
       class="thumb-zone"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
-      @drop.prevent="onDrop"
+      @drop.prevent.stop="onDrop"
     >
       <div class="thumb-strip-card">
         <div class="thumb-strip-row">
           <div class="thumb-strip-scroll">
-            <button
-              v-for="(file, idx) in images"
-              :key="file.name + idx"
-              type="button"
-              class="thumb-tile"
-              :class="{ active: idx === activeIndex, done: processedBlobs[idx] }"
-              @click="emit('select-image', idx)"
-            >
-              <img :src="thumbUrls[idx]" :alt="file.name" class="thumb-img" />
-              <div class="thumb-actions">
-                <button type="button" class="btn-rm" @click.stop="removeImage(idx)">✕</button>
-              </div>
-              <span v-if="processedBlobs[idx]" class="thumb-done-dot" aria-hidden="true" />
-            </button>
-            <button type="button" class="thumb-add" @click="fileInput.click()">
+            <div v-for="(file, idx) in images" :key="file.name + idx" class="thumb-item">
+              <button type="button" class="thumb-tile" :class="{ active: idx === activeIndex, done: processedBlobs[idx] }" @click="emit('select-image', idx)">
+                <img :src="thumbUrls[idx]" :alt="file.name" class="thumb-img" />
+                <span v-if="processedBlobs[idx]" class="thumb-done-dot" aria-hidden="true" />
+              </button>
+              <button type="button" class="btn-rm" :aria-label="`删除 ${file.name}`" :disabled="processing" @click.stop="removeImage(idx)">✕</button>
+            </div>
+            <button type="button" class="thumb-add" :disabled="processing" @click="fileInput.click()">
               <svg class="thumb-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14" stroke-linecap="round" />
               </svg>
               <span class="thumb-add-label">添加</span>
             </button>
           </div>
-          <button type="button" class="btn-clear-text" @click="emit('update:images', [])">清空</button>
+          <button type="button" class="btn-clear-text" :disabled="processing" @click="emit('update:images', [])">清空</button>
         </div>
       </div>
       <div
@@ -38,13 +31,14 @@
         :class="{ visible: isDragging }"
         @dragover.prevent
         @dragleave.prevent="isDragging = false"
-        @drop.prevent="onDrop"
+        @drop.prevent.stop="onDrop"
       >松开鼠标添加图片</div>
     </div>
 
     <input
       ref="fileInput"
       type="file"
+      :disabled="processing"
       accept="image/jpeg,image/png,image/webp"
       multiple
       class="file-input-hidden"
@@ -55,15 +49,15 @@
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
-
-const MAX_BYTES = 10 * 1024 * 1024
+import { classifyUploads } from '../utils/uploads.js'
 
 const props = defineProps({
   images:         { type: Array, default: () => [] },
   processedBlobs: { type: Array, default: () => [] },
   activeIndex:    { type: Number, default: 0 },
+  processing:     { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:images', 'select-image'])
+const emit = defineEmits(['update:images', 'select-image', 'reject-files'])
 
 const fileInput  = ref(null)
 const isDragging = ref(false)
@@ -89,6 +83,7 @@ function getBlobUrl(idx) {
 }
 
 function removeImage(idx) {
+  if (props.processing) return
   emit('update:images', props.images.filter((_, i) => i !== idx))
 }
 
@@ -98,11 +93,10 @@ function dlName(name) {
 }
 
 function addFiles(fileList) {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp']
-  const valid = Array.from(fileList).filter(
-    f => allowed.includes(f.type) && f.size <= MAX_BYTES
-  )
-  emit('update:images', [...props.images, ...valid].slice(0, 100))
+  if (props.processing) return
+  const { valid, rejected } = classifyUploads(fileList, props.images)
+  if (valid.length) emit('update:images', [...props.images, ...valid])
+  if (rejected.length) emit('reject-files', rejected)
 }
 
 function onDrop(e) {
@@ -222,7 +216,13 @@ function onFileChange(e) {
   border-color: #2b7fff;
   box-shadow: 0 0 0 2px rgba(43, 127, 255, 0.2);
 }
-.thumb-actions {
+.thumb-item {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--thumb);
+  height: var(--thumb);
+}
+.thumb-item .btn-rm {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -233,7 +233,8 @@ function onFileChange(e) {
   transition: opacity 0.15s;
   z-index: 1;
 }
-.thumb-tile:hover .thumb-actions { opacity: 1; }
+.thumb-item:hover .btn-rm,
+.thumb-item:focus-within .btn-rm { opacity: 1; }
 .btn-rm,
 .btn-dl {
   width: 16px;
